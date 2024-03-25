@@ -39,6 +39,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class Client {
 
 	private String titular = "Titular";
+	private String mediosPago = "MediosPago";
 	private TableName tablaTest = TableName.valueOf("Test1");
 
 	public static void main(String[] args) throws IOException {
@@ -67,9 +68,12 @@ public class Client {
 
 		TableDescriptorBuilder tableDescBuilder = TableDescriptorBuilder.newBuilder(tablaTest);
 		ColumnFamilyDescriptorBuilder columnDescBuilder = ColumnFamilyDescriptorBuilder
-				.newBuilder(Bytes.toBytes(titular)).setBlocksize(32 * 1024)
+				.newBuilder(Bytes.toBytes(titular)).setBlocksize(32 * 1024).setCompressionType(Compression.Algorithm.GZ)
+				.setDataBlockEncoding(DataBlockEncoding.NONE);
+		ColumnFamilyDescriptorBuilder columnDescBuilder2 = ColumnFamilyDescriptorBuilder
+				.newBuilder(Bytes.toBytes(mediosPago)).setBlocksize(32 * 1024)
 				.setCompressionType(Compression.Algorithm.GZ).setDataBlockEncoding(DataBlockEncoding.NONE);
-		tableDescBuilder.setColumnFamily(columnDescBuilder.build());
+		tableDescBuilder.setColumnFamilies(Arrays.asList(columnDescBuilder.build(), columnDescBuilder2.build()));
 		TableDescriptor desc = tableDescBuilder.build();
 
 		admin.createTable(desc);
@@ -90,10 +94,11 @@ public class Client {
 		Result r = table.get(g);
 		byte[] value = r.getValue(Bytes.toBytes(titular), Bytes.toBytes("nombre"));
 		byte[] value2 = r.getValue(Bytes.toBytes(titular), Bytes.toBytes("apellidos"));
+		byte[] value3 = r.getValue(Bytes.toBytes(mediosPago), Bytes.toBytes("IBAN"));
 		long ts = r.rawCells()[0].getTimestamp();
 
-		System.out.println("Registro encontrado: (" + Bytes.toString(value) + "," + Bytes.toString(value2)
-				+ ") con timestamp: " + ts);
+		System.out.println("Registro encontrado: (" + Bytes.toString(value) + ", " + Bytes.toString(value2)
+				+ ", "+Bytes.toString(value3) + ") con timestamp: " + ts);
 		System.out.println("*** Hecho get.");
 	}
 
@@ -102,12 +107,13 @@ public class Client {
 		Put p = new Put(Bytes.toBytes(id));
 		p.addColumn(Bytes.toBytes(titular), Bytes.toBytes("nombre"), Bytes.toBytes(nombre));
 		p.addColumn(Bytes.toBytes(titular), Bytes.toBytes("apellidos"), Bytes.toBytes(apellido));
+		p.addColumn(Bytes.toBytes(mediosPago), Bytes.toBytes("IBAN"), Bytes.toBytes("ES9500001111223333333333"));
 
 		System.out.println("*** PUT ejemplo. Insertando ejemplos de Titular con (Nombre y Apellidos) en la tabla: "
 				+ tablaTest.getNameAsString() + " " + p);
 		table.put(p);
 	}
-	
+
 	private void update(Table table, String id, String apellido) throws IOException {
 
 		Put p = new Put(Bytes.toBytes(id));
@@ -117,7 +123,7 @@ public class Client {
 				+ tablaTest.getNameAsString() + " " + p);
 		table.put(p);
 	}
-	
+
 	private void delete(Table table, String id) throws IOException {
 		Delete d = new Delete(Bytes.toBytes(id));
 		System.out.println("*** DELETE ejemplo. Borrando ejemplo de Titular con (Nombre y Apellidos) en la tabla: "
@@ -145,11 +151,12 @@ public class Client {
 		System.out.println("****** Buscando con filtro donde id igual: " + id + " y con apellido: " + apellido);
 		Filter filter1 = new PrefixFilter(Bytes.toBytes(id));
 		Filter filter2 = new FamilyFilter(CompareOperator.EQUAL, new BinaryComparator(Bytes.toBytes(titular)));
+		Filter filter21 = new FamilyFilter(CompareOperator.EQUAL, new BinaryComparator(Bytes.toBytes(mediosPago)));
 		Filter filter3 = new QualifierFilter(CompareOperator.EQUAL, new BinaryComparator(Bytes.toBytes("apellidos")));
 		SingleColumnValueFilter filter4 = new SingleColumnValueFilter(Bytes.toBytes(titular),
 				Bytes.toBytes("apellidos"), CompareOperator.EQUAL, Bytes.toBytes(apellido));
 
-		List<Filter> filters = Arrays.asList(filter1, filter2, filter3, filter4);
+		List<Filter> filters = Arrays.asList(filter1, filter2, filter21, filter3, filter4);
 
 		Scan scan = new Scan();
 		scan.setFilter(new FilterList(Operator.MUST_PASS_ALL, filters));
@@ -188,13 +195,13 @@ public class Client {
 			get(table, id2);
 
 			scan(table);
-			
+
 			update(table, id1, "Muncharaz");
 
 			filters(table, id1, "Muncharaz");
-			
+
 			delete(table, id1);
-			
+
 			scan(table);
 		}
 	}
