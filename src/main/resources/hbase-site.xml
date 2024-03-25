@@ -1,0 +1,12 @@
+<configuration>
+	<property>
+		<name>hbase.zookeeper.quorum</name>
+		<value>josehbase</value>
+	</property>
+	<property>
+		<name>hbase.zookeeper.property.clientPort</name>
+		<value>2181</value>
+	</property>
+</configuration>
+
+
